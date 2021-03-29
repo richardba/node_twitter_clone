@@ -36,13 +36,13 @@ export async function findUserByUsername(username, columns = ['*']) {
 
 export async function createUser({ name, username, password, email }) {
   try {
-    const hashedPassword = await hashPassword(password);
+    const hashing = await hashPassword(password);
     await knex('users').insert({
-      avatar_source_url: createUserAvatarUrl(email),
-      email,
       name,
-      password: hashedPassword,
       username,
+      password: hashing,
+      email,      
+      avatar_source_url: createUserAvatarUrl(email),
     });
   } catch (err) {
     if (err.code === POSTGRES_UNIQUE_VIOLATION) {
@@ -76,10 +76,12 @@ export async function followUser(userId, targetId) {
     .returning('id');
 }
 
-
+/**
+* Create a list of suggestion for a user to follow
+* Selecting a bunch of random users, which that user does not follow
+*/
 export async function getWhoToFollow(user, count, columns = ['*']) {
-  // Selects "count" random users that the user doesn't follow yet
-  const rows = await knex('users')
+  const followSuggestion = await knex('users')
     .select(columns)
     .select(knex.raw('random() as ordering'))
     .whereNotIn('id', function() {
@@ -91,20 +93,20 @@ export async function getWhoToFollow(user, count, columns = ['*']) {
     .whereNot('id', user.id)
     .orderBy('ordering')
     .limit(count);
-  return rows;
+  return followSuggestion;
 }
 
 export async function followsUser(user, targetUsername) {
   const target = await findUserByUsername(targetUsername, 'id');
 
-  const entries = await knex('follows')
+  const follows = await knex('follows')
     .select('id')
     .where({
       followingId: target.id,
       userId: user.id,
     });
 
-  return entries.length > 0;
+  return follows.length > 0;
 }
 
 export async function getUserFollowingIds(user) {
@@ -115,22 +117,22 @@ export async function getUserFollowingIds(user) {
 }
 
 export async function getUserTweetsCount(user) {
-  const entries = await knex('tweets')
+  const tweetCount = await knex('tweets')
     .count('id')
     .where({ userId: user.id });
-  return Number(entries[0].count);
+  return Number(tweetCount[0].count);
 }
 
 export async function getUserFollowersCount(user) {
-  const entries = await knex('follows')
+  const followersCount = await knex('follows')
     .count('id')
     .where({ followingId: user.id });
-  return Number(entries[0].count);
+  return Number(followersCount[0].count);
 }
 
 export async function getUserFollowingCount(user) {
-  const entries = await knex('follows')
+  const followingCount = await knex('follows')
     .count('id')
     .where({ userId: user.id });
-  return Number(entries[0].count);
+  return Number(followingCount[0].count);
 }

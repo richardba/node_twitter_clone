@@ -101,7 +101,7 @@ export async function getTweetsFromUser(userId, { first, after, order }) {
   const query = knex('tweets')
     .select(
       'content',
-      'created_at'
+      'created_at',
       'id',
       'likeForTweetId',
       'retweetForTweetId',
