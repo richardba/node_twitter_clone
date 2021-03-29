@@ -56,3 +56,81 @@ export async function createUser({ name, username, password, email }) {
     throw err;
   }
 }
+
+/**
+* User interactions
+*/
+
+export async function unfollowUser(userId, targetId) {
+  return await knex('follows')
+    .del()
+    .where({ userId, followingId: targetId });
+}
+
+export async function followUser(userId, targetId) {
+  if (userId === targetId)
+    throw new InvalidOperation('Error, user tried to follow himself');
+
+  return await knex('follows')
+    .insert({ userId, followingId: targetId })
+    .returning('id');
+}
+
+
+export async function getWhoToFollow(user, count, columns = ['*']) {
+  // Selects "count" random users that the user doesn't follow yet
+  const rows = await knex('users')
+    .select(columns)
+    .select(knex.raw('random() as ordering'))
+    .whereNotIn('id', function() {
+      this.select('follows.followingId')
+        .from('follows')
+        .where('follows.userId',
+               user.id);
+    })
+    .whereNot('id', user.id)
+    .orderBy('ordering')
+    .limit(count);
+  return rows;
+}
+
+export async function followsUser(user, targetUsername) {
+  const target = await findUserByUsername(targetUsername, 'id');
+
+  const entries = await knex('follows')
+    .select('id')
+    .where({
+      followingId: target.id,
+      userId: user.id,
+    });
+
+  return entries.length > 0;
+}
+
+export async function getUserFollowingIds(user) {
+  const rows = await knex('follows')
+    .select('followingId')
+    .where({ userId: user.id });
+  return rows.map(row => row.followingId);
+}
+
+export async function getUserTweetsCount(user) {
+  const entries = await knex('tweets')
+    .count('id')
+    .where({ userId: user.id });
+  return Number(entries[0].count);
+}
+
+export async function getUserFollowersCount(user) {
+  const entries = await knex('follows')
+    .count('id')
+    .where({ followingId: user.id });
+  return Number(entries[0].count);
+}
+
+export async function getUserFollowingCount(user) {
+  const entries = await knex('follows')
+    .count('id')
+    .where({ userId: user.id });
+  return Number(entries[0].count);
+}
